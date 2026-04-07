@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pulse — Social</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <link rel="stylesheet" href="assets/css/main.css">
+  <link rel="stylesheet" href="assets/css/auth.css">
+  <link rel="stylesheet" href="assets/css/layout.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+  <link rel="stylesheet" href="assets/css/modal.css">
+</head>
+<body>
+
+<!-- CONFIG MODAL -->
+<div class="modal-overlay" id="config-modal">
+  <div class="modal">
+    <h2>⚡ Connect Supabase</h2>
+    <p>Enter your Supabase project credentials. Then run this SQL in your Supabase SQL editor to set up the database:</p>
+    <div class="modal-sql" id="sql-display"></div>
+    <div class="config-fields">
+      <div class="input-group">
+        <label>Supabase URL</label>
+        <input type="text" id="sb-url" placeholder="https://xxxx.supabase.co"/>
+      </div>
+      <div class="input-group">
+        <label>Supabase Anon Key</label>
+        <input type="text" id="sb-key" placeholder="eyJ..."/>
+      </div>
+    </div>
+    <button class="btn-primary" onclick="saveConfig()">Connect & Launch 🚀</button>
+  </div>
+</div>
+
+<!-- AUTH SCREEN -->
+<div id="auth-screen" style="display:none;">
+  <div class="auth-box">
+    <div class="auth-logo">Pul<span>se</span></div>
+    <div class="auth-sub">Share your world, your way.</div>
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('login')">Sign In</button>
+      <button class="tab-btn" onclick="switchTab('signup')">Sign Up</button>
+    </div>
+    <div id="login-form">
+      <div class="input-group">
+        <label>Email</label>
+        <input type="email" id="login-email" placeholder="you@example.com"/>
+      </div>
+      <div class="input-group">
+        <label>Password</label>
+        <input type="password" id="login-pass" placeholder="••••••••"/>
+      </div>
+      <button class="btn-primary" onclick="login()">Sign In</button>
+    </div>
+    <div id="signup-form" style="display:none;">
+      <div class="input-group">
+        <label>Username</label>
+        <input type="text" id="signup-user" placeholder="cooluser123"/>
+      </div>
+      <div class="input-group">
+        <label>Email</label>
+        <input type="email" id="signup-email" placeholder="you@example.com"/>
+      </div>
+      <div class="input-group">
+        <label>Password</label>
+        <input type="password" id="signup-pass" placeholder="Min 6 characters"/>
+      </div>
+      <button class="btn-primary" onclick="signup()">Create Account</button>
+    </div>
+    <div class="auth-msg" id="auth-msg"></div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app">
+  <div class="layout">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="logo">Pul<span>se</span></div>
+      <button class="nav-item active" onclick="showFeed()" id="nav-feed">
+        <span class="nav-icon">🏠</span><span>Home</span>
+      </button>
+      <button class="nav-item" onclick="showProfile(currentUser?.id)" id="nav-profile">
+        <span class="nav-icon">👤</span><span>Profile</span>
+      </button>
+      <div class="sidebar-bottom">
+        <div class="user-chip">
+          <div class="avatar" id="sidebar-avatar"></div>
+          <div class="user-info">
+            <div class="user-name" id="sidebar-name">Loading...</div>
+            <div class="user-handle" id="sidebar-handle">@...</div>
+          </div>
+          <button class="logout-btn" onclick="logout()" title="Logout">↩</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="feed" id="main-content">
+      <!-- FEED PAGE -->
+      <div id="feed-page">
+        <div class="feed-header">Home</div>
+        <div class="composer">
+          <div class="avatar" id="composer-avatar"></div>
+          <div class="composer-input">
+            <textarea id="post-text" placeholder="What's on your mind?" rows="3" maxlength="500"></textarea>
+            <div class="composer-actions">
+              <input class="img-url-input" id="post-img" placeholder="🖼 Image URL (optional)"/>
+              <button class="post-btn" onclick="createPost()">Post</button>
+            </div>
+          </div>
+        </div>
+        <div id="posts-list">
+          <div class="loading"><div class="spinner"></div>Loading posts...</div>
+        </div>
+      </div>
+
+      <!-- PROFILE PAGE -->
+      <div id="profile-page">
+        <div class="feed-header" style="display:flex;align-items:center;gap:12px;">
+          <button onclick="showFeed()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.1rem;">←</button>
+          <span id="profile-header-name">Profile</span>
+        </div>
+        <div class="profile-banner"></div>
+        <div class="profile-info-wrap">
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;">
+            <div class="profile-avatar-lg" id="profile-avatar-lg"></div>
+            <button class="follow-btn" id="follow-action-btn" style="display:none;margin-bottom:12px;"></button>
+          </div>
+          <div class="profile-display-name" id="profile-display-name"></div>
+          <div class="profile-handle" id="profile-handle"></div>
+          <div class="profile-bio" id="profile-bio"></div>
+          <div class="profile-stats">
+            <div class="stat"><strong id="stat-posts">0</strong> Posts</div>
+            <div class="stat"><strong id="stat-followers">0</strong> Followers</div>
+            <div class="stat"><strong id="stat-following">0</strong> Following</div>
+          </div>
+        </div>
+        <div style="border-top:1px solid var(--border);padding:12px 24px;font-family:'Syne',sans-serif;font-size:0.85rem;font-weight:700;color:var(--muted);">POSTS</div>
+        <div id="profile-posts-list"></div>
+      </div>
+    </main>
+
+    <!-- RIGHT PANEL -->
+    <aside class="right-panel">
+      <div class="panel-section">
+        <div class="panel-title">Who to Follow</div>
+        <div id="suggestions-list">
+          <div class="loading" style="padding:20px 0;"><div class="spinner"></div></div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- SCRIPTS -->
+<script src="assets/js/utils.js"></script>
+<script src="assets/js/config.js"></script>
+<script src="assets/js/auth.js"></script>
+<script src="assets/js/navigation.js"></script>
+<script src="assets/js/profile.js"></script>
+<script src="assets/js/posts.js"></script>
+<script src="assets/js/likes.js"></script>
+<script src="assets/js/follows.js"></script>
+
+</body>
+</html>

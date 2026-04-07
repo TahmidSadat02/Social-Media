@@ -1,0 +1,65 @@
+/* ── TOAST ── */
+.toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 20px;
+  font-size: 0.88rem;
+  z-index: 1000;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  white-space: nowrap;
+}
+
+.toast.show { transform: translateX(-50%) translateY(0); }
+.toast.success { border-color: var(--accent); color: var(--accent); }
+.toast.error { border-color: var(--accent2); color: var(--accent2); }
+
+/* ── CONFIG MODAL ── */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.7);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(4px);
+}
+
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 36px 32px;
+  width: 100%;
+  max-width: 480px;
+  margin: 16px;
+}
+
+.modal h2 {
+  font-family: 'Syne', sans-serif;
+  font-size: 1.4rem;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.modal p { color: var(--muted); font-size: 0.88rem; line-height: 1.6; margin-bottom: 20px; }
+
+.modal-sql {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  font-family: monospace;
+  font-size: 0.78rem;
+  color: #a8e6cf;
+  white-space: pre;
+  overflow-x: auto;
+  margin-bottom: 20px;
+  max-height: 220px;
+  overflow-y: auto;
+  line-height: 1.6;
+}
+
+.config-fields { display: grid; gap: 12px; margin-bottom: 16px; }
