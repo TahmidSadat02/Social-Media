@@ -139,12 +139,13 @@ async function loadMessages(userId) {
 }
 
 // Render a single message
-function renderMessage(msg) {
+function renderMessage(msg, withAnimation = false) {
   const isSent = msg.sender_id === currentUser.id;
   const timeStr = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const animClass = withAnimation ? 'message-animate' : '';
 
   return `
-    <div class="message-bubble ${isSent ? 'sent' : 'received'}">
+    <div class="message-bubble ${isSent ? 'sent' : 'received'} ${animClass}" data-msg-id="${msg.id}">
       ${escHtml(msg.content)}
       <div class="message-time">${timeStr}</div>
     </div>`;
@@ -159,19 +160,27 @@ async function sendMessage() {
 
   if (!content) return;
 
-  const { error } = await window.supabase.from('messages').insert({
+  // Clear input immediately for better UX
+  input.value = '';
+  input.style.height = 'auto';
+
+  // Insert message into database
+  const { data, error } = await window.supabase.from('messages').insert({
     sender_id: currentUser.id,
     receiver_id: activeChat,
     content
-  });
+  }).select().single();
 
   if (error) {
     showToast('Failed to send message', 'error');
     return;
   }
 
-  input.value = '';
-  input.style.height = 'auto';
+  // Immediately append the message to UI (don't wait for real-time)
+  if (data) {
+    appendMessage(data, true);
+    scrollToBottom();
+  }
 }
 
 // Subscribe to real-time message updates
@@ -195,7 +204,7 @@ function subscribeToMessages(userId) {
       (payload) => {
         // Only add if this message is for current user
         if (payload.new.receiver_id === currentUser.id) {
-          appendMessage(payload.new);
+          appendMessage(payload.new, true);
           scrollToBottom();
 
           // Mark as read immediately
@@ -215,9 +224,9 @@ function subscribeToMessages(userId) {
         filter: `sender_id=eq.${currentUser.id}`
       },
       (payload) => {
-        // Add our own sent messages
+        // Add our own sent messages (from real-time, with duplicate check)
         if (payload.new.receiver_id === userId) {
-          appendMessage(payload.new);
+          appendMessage(payload.new, false);
           scrollToBottom();
         }
       }
@@ -226,8 +235,13 @@ function subscribeToMessages(userId) {
 }
 
 // Append a message to the chat
-function appendMessage(msg) {
+function appendMessage(msg, withAnimation = false) {
   const area = document.getElementById('messages-area');
+
+  // Check if message already exists (prevent duplicates)
+  if (area.querySelector(`[data-msg-id="${msg.id}"]`)) {
+    return;
+  }
 
   // Remove empty state if present
   const empty = area.querySelector('.chat-empty');
@@ -236,7 +250,7 @@ function appendMessage(msg) {
   const loading = area.querySelector('.loading');
   if (loading) loading.remove();
 
-  area.insertAdjacentHTML('beforeend', renderMessage(msg));
+  area.insertAdjacentHTML('beforeend', renderMessage(msg, withAnimation));
 }
 
 // Scroll chat to bottom
