@@ -189,6 +189,19 @@
     <!-- RIGHT PANEL -->
     <aside class="right-panel">
       <div class="panel-section">
+        <div class="panel-title">Search Users</div>
+        <div class="search-box">
+          <input
+            type="text"
+            id="user-search"
+            class="search-input"
+            placeholder="Search by name or username..."
+            oninput="searchUsers(this.value)"
+          />
+        </div>
+        <div id="search-results"></div>
+      </div>
+      <div class="panel-section">
         <div class="panel-title">Who to Follow</div>
         <div id="suggestions-list">
           <div class="loading" style="padding:20px 0;"><div class="spinner"></div></div>
@@ -210,6 +223,7 @@
 <script src="assets/js/posts.js"></script>
 <script src="assets/js/likes.js"></script>
 <script src="assets/js/follows.js"></script>
+<script src="assets/js/search.js"></script>
 <script src="assets/js/chat.js"></script>
 
 </body>
