@@ -12,13 +12,14 @@
   <link rel="stylesheet" href="assets/css/layout.css">
   <link rel="stylesheet" href="assets/css/components.css">
   <link rel="stylesheet" href="assets/css/modal.css">
+  <link rel="stylesheet" href="assets/css/chat.css">
 </head>
 <body>
 
 <!-- CONFIG MODAL -->
 <div class="modal-overlay" id="config-modal" style="display: none;">
   <div class="modal">
-    <h2>⚡ Connect Supabase</h2>
+    <h2>Connect Supabase</h2>
     <p>Enter your Supabase project credentials. Then run this SQL in your Supabase SQL editor to set up the database:</p>
     <div class="modal-sql" id="sql-display"></div>
     <div class="config-fields">
@@ -31,7 +32,7 @@
         <input type="text" id="sb-key" placeholder="eyJ..."/>
       </div>
     </div>
-    <button class="btn-primary" onclick="saveConfig()">Connect & Launch 🚀</button>
+    <button class="btn-primary" onclick="saveConfig()">Connect & Launch</button>
   </div>
 </div>
 
@@ -81,10 +82,13 @@
     <aside class="sidebar">
       <div class="logo">Pul<span>se</span></div>
       <button class="nav-item active" onclick="showFeed()" id="nav-feed">
-        <span class="nav-icon">🏠</span><span>Home</span>
+        <span>Home</span>
+      </button>
+      <button class="nav-item" onclick="showMessages()" id="nav-messages">
+        <span>Messages</span>
       </button>
       <button class="nav-item" onclick="showProfile(currentUser?.id)" id="nav-profile">
-        <span class="nav-icon">👤</span><span>Profile</span>
+        <span>Profile</span>
       </button>
       <div class="sidebar-bottom">
         <div class="user-chip">
@@ -108,7 +112,7 @@
           <div class="composer-input">
             <textarea id="post-text" placeholder="What's on your mind?" rows="3" maxlength="500"></textarea>
             <div class="composer-actions">
-              <input class="img-url-input" id="post-img" placeholder="🖼 Image URL (optional)"/>
+              <input class="img-url-input" id="post-img" placeholder="Image URL (optional)"/>
               <button class="post-btn" onclick="createPost()">Post</button>
             </div>
           </div>
@@ -128,7 +132,10 @@
         <div class="profile-info-wrap">
           <div style="display:flex;align-items:flex-end;justify-content:space-between;">
             <div class="profile-avatar-lg" id="profile-avatar-lg"></div>
-            <button class="follow-btn" id="follow-action-btn" style="display:none;margin-bottom:12px;"></button>
+            <div style="display:flex;gap:8px;margin-bottom:12px;">
+              <button class="follow-btn" id="follow-action-btn" style="display:none;"></button>
+              <button class="message-btn" id="message-action-btn" style="display:none;" onclick="startChatFromProfile(viewingProfileId)">Message</button>
+            </div>
           </div>
           <div class="profile-display-name" id="profile-display-name"></div>
           <div class="profile-handle" id="profile-handle"></div>
@@ -141,6 +148,41 @@
         </div>
         <div style="border-top:1px solid var(--border);padding:12px 24px;font-family:'Syne',sans-serif;font-size:0.85rem;font-weight:700;color:var(--muted);">POSTS</div>
         <div id="profile-posts-list"></div>
+      </div>
+
+      <!-- CHAT PAGE -->
+      <div id="chat-page">
+        <!-- Conversations List -->
+        <div id="conversations-view">
+          <div class="feed-header">Messages</div>
+          <div id="conversations-list" class="conversations-list"></div>
+        </div>
+
+        <!-- Chat Window -->
+        <div id="chat-window" class="chat-window" style="display:none;">
+          <div class="chat-header">
+            <button class="chat-back-btn" onclick="backToConversations()">←</button>
+            <div class="avatar" id="chat-avatar"></div>
+            <div class="chat-user-info">
+              <div class="chat-user-name" id="chat-user-name">User</div>
+              <div class="chat-user-handle" id="chat-user-handle">@user</div>
+            </div>
+          </div>
+          <div class="messages-area" id="messages-area"></div>
+          <div class="chat-input-wrap">
+            <div class="chat-input-container">
+              <textarea
+                class="chat-textarea"
+                id="chat-input"
+                placeholder="Type a message..."
+                onkeydown="handleChatKeydown(event)"
+                oninput="autoResizeChatInput(this)"
+                rows="1"
+              ></textarea>
+              <button class="send-btn" onclick="sendMessage()">Send</button>
+            </div>
+          </div>
+        </div>
       </div>
     </main>
 
@@ -168,6 +210,7 @@
 <script src="assets/js/posts.js"></script>
 <script src="assets/js/likes.js"></script>
 <script src="assets/js/follows.js"></script>
+<script src="assets/js/chat.js"></script>
 
 </body>
 </html>

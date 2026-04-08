@@ -102,7 +102,6 @@
   .right-panel { display: none; }
   .logo { font-size: 1.2rem; padding: 0 8px; }
   .logo span { display: none; }
-  .logo::after { content: '⚡'; }
   .nav-item span:last-child { display: none; }
   .user-info, .logout-btn { display: none; }
   .sidebar { padding: 20px 10px; }

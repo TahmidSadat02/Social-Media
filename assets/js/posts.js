@@ -9,8 +9,8 @@ async function loadPosts() {
     .order('created_at', { ascending: false })
     .limit(50);
 
-  if (error) { list.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-text">Failed to load posts.<br/>Check your Supabase setup.</div></div>'; return; }
-  if (!posts?.length) { list.innerHTML = '<div class="empty-state"><div class="empty-icon">✨</div><div class="empty-text">No posts yet.<br/>Be the first to post!</div></div>'; return; }
+  if (error) { list.innerHTML = '<div class="empty-state"><div class="empty-text">Failed to load posts.<br/>Check your Supabase setup.</div></div>'; return; }
+  if (!posts?.length) { list.innerHTML = '<div class="empty-state"><div class="empty-text">No posts yet.<br/>Be the first to post!</div></div>'; return; }
 
   list.innerHTML = posts.map(p => renderPost(p)).join('');
 }
@@ -34,13 +34,13 @@ function renderPost(post) {
           <div class="post-user-name" onclick="showProfile('${profile?.id}')">${profile?.full_name || profile?.username || 'Unknown'}</div>
           <div class="post-user-handle">@${profile?.username || '?'} · ${timeAgo}</div>
         </div>
-        ${isOwn ? `<button class="post-delete" onclick="deletePost('${post.id}')">🗑</button>` : ''}
+        ${isOwn ? `<button class="post-delete" onclick="deletePost('${post.id}')">Delete</button>` : ''}
       </div>
       <div class="post-content">${escHtml(post.content)}</div>
       ${post.image_url ? `<img class="post-image" src="${escHtml(post.image_url)}" onerror="this.style.display='none'" alt="post image"/>` : ''}
       <div class="post-actions">
         <button class="action-btn ${isLiked ? 'liked' : ''}" onclick="toggleLike('${post.id}', ${isLiked})">
-          ${isLiked ? '❤️' : '🤍'} <span>${likeCount}</span>
+          ${isLiked ? 'Like' : 'Like'} <span>${likeCount}</span>
         </button>
       </div>
     </div>`;
@@ -60,7 +60,7 @@ async function createPost() {
   if (error) { showToast('Failed to post', 'error'); return; }
   document.getElementById('post-text').value = '';
   document.getElementById('post-img').value = '';
-  showToast('Posted! ✨', 'success');
+  showToast('Posted!', 'success');
   loadPosts();
 }
 

@@ -4,7 +4,13 @@ async function showProfile(userId) {
   viewingProfileId = userId;
   document.getElementById('feed-page').style.display = 'none';
   document.getElementById('profile-page').style.display = 'block';
+  if (document.getElementById('chat-page')) {
+    document.getElementById('chat-page').style.display = 'none';
+  }
   document.getElementById('nav-feed').classList.remove('active');
+  if (document.getElementById('nav-messages')) {
+    document.getElementById('nav-messages').classList.remove('active');
+  }
 
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', userId).single();
   if (!profile) return;
@@ -33,8 +39,12 @@ async function showProfile(userId) {
 
   // Follow button
   const followBtn = document.getElementById('follow-action-btn');
+  const messageBtn = document.getElementById('message-action-btn');
+
   if (userId !== currentUser?.id) {
     followBtn.style.display = 'inline-block';
+    messageBtn.style.display = 'inline-block';
+
     const { data: followData } = await supabase.from('follows')
       .select('id').eq('follower_id', currentUser.id).eq('following_id', userId).single();
     const isFollowing = !!followData;
@@ -43,6 +53,7 @@ async function showProfile(userId) {
     followBtn.onclick = () => toggleFollow(userId, isFollowing, followBtn);
   } else {
     followBtn.style.display = 'none';
+    messageBtn.style.display = 'none';
   }
 
   // Posts
@@ -59,6 +70,6 @@ async function loadProfilePosts(userId) {
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
 
-  if (!posts?.length) { list.innerHTML = '<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">No posts yet.</div></div>'; return; }
+  if (!posts?.length) { list.innerHTML = '<div class="empty-state"><div class="empty-text">No posts yet.</div></div>'; return; }
   list.innerHTML = posts.map(p => renderPost(p)).join('');
 }
