@@ -53,7 +53,7 @@ create policy "Users manage likes" on likes for all using (auth.uid() = user_id)
 create policy "Public follows" on follows for select using (true);
 create policy "Users manage follows" on follows for all using (auth.uid() = follower_id);`;
 
-let supabase = null;
+let supabaseClient = null;
 let currentUser = null;
 let currentProfile = null;
 let viewingProfileId = null;
@@ -70,28 +70,42 @@ function saveConfig() {
 
 function initSupabase(url, key) {
   try {
-    supabase = window.supabase.createClient(url, key);
+    if (supabaseClient !== null) {
+      console.log('Supabase already initialized');
+      return;
+    }
+
+    // Create Supabase client using the global supabase object from CDN
+    supabaseClient = window.supabase.createClient(url, key);
+    // Also set it as global 'supabase' for other files
+    window.supabase = supabaseClient;
+    console.log('Supabase initialized successfully');
     document.getElementById('config-modal').style.display = 'none';
     checkSession();
   } catch(e) {
-    showToast('Invalid credentials', 'error');
+    console.error('Supabase init error:', e);
+    showToast('Failed to connect to Supabase', 'error');
+    // Show auth screen as fallback
+    document.getElementById('auth-screen').style.display = 'flex';
   }
 }
 
 // ── INIT ──
-window.onload = () => {
-  const sqlDisplay = document.getElementById('sql-display');
-  if (sqlDisplay) sqlDisplay.textContent = SQL_SETUP;
-  
-  const url = localStorage.getItem('sb_url');
-  const key = localStorage.getItem('sb_key');
-  if (url && key) {
-    const sbUrlEl = document.getElementById('sb-url');
-    const sbKeyEl = document.getElementById('sb-key');
-    if (sbUrlEl) sbUrlEl.value = url;
-    if (sbKeyEl) sbKeyEl.value = key;
-    initSupabase(url, key);
-  } else {
-    document.getElementById('config-modal').style.display = 'flex';
-  }
-};
+const SUPABASE_URL = 'https://szvcogdwiaycvanebokd.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN6dmNvZ2R3aWF5Y3ZhbmVib2tkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1NTU1MDYsImV4cCI6MjA5MTEzMTUwNn0.VakSgW5dYgaAV1syQYjdBCSq2SjaUBYn3EGjJOj8dtE';
+
+// Auto-initialize on load
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}
+
+function initApp() {
+  // Hide config modal
+  const modal = document.getElementById('config-modal');
+  if (modal) modal.style.display = 'none';
+
+  // Initialize Supabase
+  initSupabase(SUPABASE_URL, SUPABASE_KEY);
+}

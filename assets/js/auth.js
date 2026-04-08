@@ -44,12 +44,18 @@ async function logout() {
 }
 
 async function checkSession() {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (session) {
-    currentUser = session.user;
-    await loadCurrentProfile();
-    showApp();
-  } else {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      currentUser = session.user;
+      await loadCurrentProfile();
+      showApp();
+    } else {
+      document.getElementById('auth-screen').style.display = 'flex';
+    }
+  } catch(e) {
+    console.error('Session check error:', e);
+    // Show auth screen if there's any error
     document.getElementById('auth-screen').style.display = 'flex';
   }
 }
