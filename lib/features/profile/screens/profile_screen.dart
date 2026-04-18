@@ -17,7 +17,7 @@ import '../../search/controllers/search_controller.dart' as search_controller;
 import '../controllers/profile_controller.dart';
 import '../../auth/controllers/auth_controller.dart';
 import 'edit_profile_screen.dart';
-import 'photo_post_detail_screen.dart';
+import 'photo_carousel_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String userId;
@@ -287,20 +287,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 return;
                               }
 
-                              final safePost =
-                                  post.profile == null &&
-                                          profileController.user != null
-                                      ? post.copyWith(
-                                        profile: profileController.user,
+                              // Ensure all posts have the profile attached
+                              final postsWithProfile =
+                                  photoPosts
+                                      .map(
+                                        (p) =>
+                                            p.profile == null &&
+                                                    profileController.user != null
+                                                ? p.copyWith(
+                                                  profile: profileController.user,
+                                                )
+                                                : p,
                                       )
-                                      : post;
+                                      .toList();
 
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
                                   builder:
-                                      (_) =>
-                                          PhotoPostDetailScreen(post: safePost),
+                                      (_) => PhotoCarouselScreen(
+                                        posts: postsWithProfile,
+                                        initialIndex: index,
+                                      ),
                                 ),
                               );
                             },
