@@ -8,6 +8,7 @@ import '../../../models/post_model.dart';
 
 class ProfileController extends ChangeNotifier {
   final supabase = SupabaseConfig.client;
+  RealtimeChannel? _postsChannel;
 
   String? _viewedUserId;
   String? _currentUserId;
@@ -39,6 +40,7 @@ class ProfileController extends ChangeNotifier {
     try {
       _isLoading = true;
       _error = null;
+      _unsubscribePostsRealtime();
       _viewedUserId = viewedUserId;
       _currentUserId = currentUserId;
       notifyListeners();
@@ -63,6 +65,7 @@ class ProfileController extends ChangeNotifier {
       _userPosts =
           (postsResponse as List).map((p) => PostModel.fromJson(p)).toList();
       _postsCount = _userPosts.length;
+      _subscribeToPostsRealtime(viewedUserId);
 
       // Load followers count
       final followersResponse = await supabase
@@ -95,6 +98,106 @@ class ProfileController extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  void _subscribeToPostsRealtime(String viewedUserId) {
+    _postsChannel =
+        supabase
+            .channel('profile-posts-$viewedUserId')
+            .onPostgresChanges(
+              event: PostgresChangeEvent.all,
+              schema: 'public',
+              table: 'posts',
+              callback: (payload) {
+                if (_viewedUserId != viewedUserId) {
+                  return;
+                }
+
+                if (payload.eventType == PostgresChangeEvent.insert) {
+                  final newRecord = payload.newRecord;
+                  final newUserId = (newRecord['user_id'] ?? '').toString();
+                  if (newUserId != viewedUserId) {
+                    return;
+                  }
+
+                  final id = (newRecord['id'] ?? '').toString();
+                  if (id.isEmpty || _userPosts.any((p) => p.id == id)) {
+                    return;
+                  }
+
+                  final createdAtRaw =
+                      (newRecord['created_at'] ??
+                              DateTime.now().toIso8601String())
+                          .toString();
+                  final createdAt =
+                      DateTime.tryParse(createdAtRaw) ?? DateTime.now();
+
+                  _userPosts.insert(
+                    0,
+                    PostModel(
+                      id: id,
+                      userId: (newRecord['user_id'] ?? viewedUserId).toString(),
+                      content: newRecord['content'] as String?,
+                      imageUrl: newRecord['image_url'] as String?,
+                      createdAt: createdAt,
+                      likesCount: 0,
+                      commentCount: 0,
+                      isLikedByMe: false,
+                      profile: _user,
+                    ),
+                  );
+                  _postsCount = _userPosts.length;
+                  notifyListeners();
+                  return;
+                }
+
+                if (payload.eventType == PostgresChangeEvent.update) {
+                  final newRecord = payload.newRecord;
+                  final updatedId = (newRecord['id'] ?? '').toString();
+                  final updatedUserId = (newRecord['user_id'] ?? '').toString();
+                  if (updatedId.isEmpty || updatedUserId != viewedUserId) {
+                    return;
+                  }
+
+                  final index = _userPosts.indexWhere((p) => p.id == updatedId);
+                  if (index == -1) {
+                    return;
+                  }
+
+                  final createdAtRaw =
+                      (newRecord['created_at'] ??
+                              _userPosts[index].createdAt.toIso8601String())
+                          .toString();
+                  final createdAt =
+                      DateTime.tryParse(createdAtRaw) ??
+                      _userPosts[index].createdAt;
+
+                  _userPosts[index] = _userPosts[index].copyWith(
+                    content: newRecord['content'] as String?,
+                    imageUrl: newRecord['image_url'] as String?,
+                    createdAt: createdAt,
+                  );
+                  notifyListeners();
+                  return;
+                }
+
+                if (payload.eventType == PostgresChangeEvent.delete) {
+                  final oldRecord = payload.oldRecord;
+                  final id = (oldRecord['id'] ?? '').toString();
+                  if (id.isEmpty) {
+                    return;
+                  }
+
+                  removePostLocally(id);
+                }
+              },
+            )
+            .subscribe();
+  }
+
+  void _unsubscribePostsRealtime() {
+    _postsChannel?.unsubscribe();
+    _postsChannel = null;
   }
 
   Future<void> toggleFollow(String targetUserId, String currentUserId) async {
@@ -188,12 +291,69 @@ class ProfileController extends ChangeNotifier {
     }
   }
 
+  Future<void> deletePost(String postId) async {
+    try {
+      final postIndex = _userPosts.indexWhere((p) => p.id == postId);
+      if (postIndex == -1) return;
+      final post = _userPosts[postIndex];
+
+      if (post.imageUrl != null && post.imageUrl!.isNotEmpty) {
+        try {
+          final uri = Uri.parse(post.imageUrl!);
+          final fileName =
+              uri.pathSegments.isNotEmpty ? uri.pathSegments.last : '';
+          if (fileName.isNotEmpty) {
+            await supabase.storage.from('posts').remove([fileName]);
+          }
+        } catch (_) {
+          // Keep going even if storage cleanup fails.
+        }
+      }
+
+      await supabase.from('posts').delete().eq('id', postId);
+
+      removePostLocally(postId);
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+    }
+  }
+
+  void addPostLocally(PostModel post) {
+    if (_viewedUserId != post.userId) {
+      return;
+    }
+
+    if (_userPosts.any((p) => p.id == post.id)) {
+      return;
+    }
+
+    _userPosts.insert(
+      0,
+      post.profile == null ? post.copyWith(profile: _user) : post,
+    );
+    _postsCount = _userPosts.length;
+    notifyListeners();
+  }
+
+  void removePostLocally(String postId) {
+    final before = _userPosts.length;
+    _userPosts.removeWhere((p) => p.id == postId);
+    if (_userPosts.length == before) {
+      return;
+    }
+
+    _postsCount = _userPosts.length;
+    notifyListeners();
+  }
+
   void clearError() {
     _error = null;
     notifyListeners();
   }
 
   void resetState() {
+    _unsubscribePostsRealtime();
     _viewedUserId = null;
     _currentUserId = null;
     _user = null;
@@ -205,5 +365,11 @@ class ProfileController extends ChangeNotifier {
     _isLoading = false;
     _error = null;
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _unsubscribePostsRealtime();
+    super.dispose();
   }
 }

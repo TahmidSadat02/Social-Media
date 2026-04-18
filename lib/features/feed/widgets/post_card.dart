@@ -14,6 +14,8 @@ class PostCard extends StatelessWidget {
   final VoidCallback onLikeTap;
   final VoidCallback? onProfileTap;
   final bool isLikedByMe;
+  final String? currentUserId;
+  final VoidCallback? onDeleteTap;
 
   const PostCard({
     super.key,
@@ -21,6 +23,8 @@ class PostCard extends StatelessWidget {
     required this.onLikeTap,
     this.onProfileTap,
     required this.isLikedByMe,
+    this.currentUserId,
+    this.onDeleteTap,
   });
 
   @override
@@ -77,6 +81,59 @@ class PostCard extends StatelessWidget {
                   ],
                 ),
               ),
+              // Delete button (only for post author)
+              if (currentUserId != null && currentUserId == post.userId)
+                PopupMenuButton<String>(
+                  onSelected: (value) {
+                    if (value == 'delete' && onDeleteTap != null) {
+                      showDialog(
+                        context: context,
+                        builder:
+                            (dialogContext) => AlertDialog(
+                              title: const Text('Delete Post'),
+                              content: const Text(
+                                'Are you sure you want to delete this post? This action cannot be undone.',
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(dialogContext),
+                                  child: const Text('Cancel'),
+                                ),
+                                TextButton(
+                                  onPressed: () {
+                                    Navigator.pop(dialogContext);
+                                    onDeleteTap?.call();
+                                  },
+                                  child: const Text(
+                                    'Delete',
+                                    style: TextStyle(color: AppColors.error),
+                                  ),
+                                ),
+                              ],
+                            ),
+                      );
+                    }
+                  },
+                  itemBuilder:
+                      (BuildContext context) => [
+                        const PopupMenuItem<String>(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.delete_outline,
+                                color: AppColors.error,
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                'Delete',
+                                style: TextStyle(color: AppColors.error),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                ),
             ],
           ),
           const SizedBox(height: 12),

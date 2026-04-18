@@ -15,11 +15,7 @@ class CommentsScreen extends StatefulWidget {
   final String postId;
   final String? postImageUrl;
 
-  const CommentsScreen({
-    super.key,
-    required this.postId,
-    this.postImageUrl,
-  });
+  const CommentsScreen({super.key, required this.postId, this.postImageUrl});
 
   @override
   State<CommentsScreen> createState() => _CommentsScreenState();
@@ -153,11 +149,10 @@ class _CommentsScreenState extends State<CommentsScreen> {
                                 ),
                                 filled: true,
                                 fillColor: AppColors.background,
-                                contentPadding:
-                                    const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 10,
-                                    ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                   borderSide: BorderSide.none,
@@ -264,7 +259,10 @@ class _CommentsScreenState extends State<CommentsScreen> {
                 currentUserId: currentUserId,
                 showReplyButton: true,
                 onReplyTap: () {
-                  controller.setReplyingTo(comment.id, comment.profile.username);
+                  controller.setReplyingTo(
+                    comment.id,
+                    comment.profile.username,
+                  );
                   _inputFocusNode.requestFocus();
                 },
               ),

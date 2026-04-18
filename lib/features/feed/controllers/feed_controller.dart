@@ -168,7 +168,7 @@ class FeedController extends ChangeNotifier {
     }
   }
 
-  Future<bool> createPhotoPost({
+  Future<PostModel?> createPhotoPost({
     required String userId,
     required Uint8List imageBytes,
     String? caption,
@@ -202,18 +202,54 @@ class FeedController extends ChangeNotifier {
       final postResponse =
           await supabase
               .from('posts')
-            .select('*, profiles(*), likes(*), comments(id)')
+              .select('*, profiles(*), likes(*), comments(id)')
               .eq('id', postId)
               .single();
 
-      _posts.insert(0, PostModel.fromJson(postResponse));
-      return true;
+      final createdPost = PostModel.fromJson(postResponse);
+      _posts.insert(0, createdPost);
+      return createdPost;
     } catch (e) {
       _error = e.toString();
-      return false;
+      return null;
     } finally {
       _isComposing = false;
       notifyListeners();
+    }
+  }
+
+  Future<bool> deletePost(String postId) async {
+    try {
+      final postIndex = _posts.indexWhere((p) => p.id == postId);
+      if (postIndex == -1) return false;
+      final post = _posts[postIndex];
+
+      // Delete image from storage if it exists
+      if (post.imageUrl != null && post.imageUrl!.isNotEmpty) {
+        try {
+          // Extract file name from public URL
+          // URL format: https://.../.../storage/v1/object/public/posts/filename
+          final uri = Uri.parse(post.imageUrl!);
+          final pathSegments = uri.pathSegments;
+          final fileName = pathSegments.last;
+
+          await supabase.storage.from('posts').remove([fileName]);
+        } catch (_) {
+          // Continue deletion even if image deletion fails
+        }
+      }
+
+      // Delete post from database (cascade will handle comments and likes)
+      await supabase.from('posts').delete().eq('id', postId);
+
+      // Remove from local list
+      _posts.removeWhere((p) => p.id == postId);
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      return false;
     }
   }
 

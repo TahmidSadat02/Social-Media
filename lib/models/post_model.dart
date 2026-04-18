@@ -32,9 +32,9 @@ class PostModel {
             : (json['likes_count'] as num?)?.toInt();
     final commentsJson = json['comments'];
     final commentsCountFromRelation =
-      commentsJson is List
-        ? commentsJson.length
-        : (json['comment_count'] as num?)?.toInt();
+        commentsJson is List
+            ? commentsJson.length
+            : (json['comment_count'] as num?)?.toInt();
 
     return PostModel(
       id: json['id'] as String,

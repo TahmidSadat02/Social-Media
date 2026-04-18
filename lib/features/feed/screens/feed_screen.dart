@@ -7,6 +7,7 @@ import '../../../core/widgets/loading_widget.dart';
 import '../controllers/feed_controller.dart';
 import '../widgets/post_card.dart';
 import '../../auth/controllers/auth_controller.dart';
+import '../../profile/controllers/profile_controller.dart';
 
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
@@ -70,6 +71,7 @@ class _FeedScreenState extends State<FeedScreen> {
                 return PostCard(
                   post: post,
                   isLikedByMe: post.isLikedByMe,
+                  currentUserId: authController.currentUser?.id,
                   onLikeTap: () {
                     feedController.toggleLike(
                       post.id,
@@ -78,6 +80,14 @@ class _FeedScreenState extends State<FeedScreen> {
                   },
                   onProfileTap: () {
                     navigateToProfile(context, post.userId);
+                  },
+                  onDeleteTap: () async {
+                    final deleted = await feedController.deletePost(post.id);
+                    if (deleted && context.mounted) {
+                      context.read<ProfileController>().removePostLocally(
+                        post.id,
+                      );
+                    }
                   },
                 );
               },

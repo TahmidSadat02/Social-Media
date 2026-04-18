@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../auth/controllers/auth_controller.dart';
+import '../../profile/controllers/profile_controller.dart';
 import '../controllers/feed_controller.dart';
 
 class CreatePhotoPostScreen extends StatefulWidget {
@@ -42,7 +43,7 @@ class _CreatePhotoPostScreenState extends State<CreatePhotoPostScreen> {
     }
 
     final imageBytes = await File(widget.imagePath).readAsBytes();
-    final ok = await feedController.createPhotoPost(
+    final createdPost = await feedController.createPhotoPost(
       userId: user.id,
       imageBytes: imageBytes,
       caption: _captionController.text.trim(),
@@ -52,7 +53,8 @@ class _CreatePhotoPostScreenState extends State<CreatePhotoPostScreen> {
       return;
     }
 
-    if (ok) {
+    if (createdPost != null) {
+      context.read<ProfileController>().addPostLocally(createdPost);
       Navigator.of(context).pop(true);
       return;
     }

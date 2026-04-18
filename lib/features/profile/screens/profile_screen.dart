@@ -210,7 +210,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           final user = profileController.user!;
           final photoPosts =
               profileController.userPosts
-                  .where((post) => (post.imageUrl ?? '').isNotEmpty)
+                  .where((post) => (post.imageUrl ?? '').trim().isNotEmpty)
                   .toList();
           final initials = getInitials(
             user.fullName.trim().isNotEmpty ? user.fullName : user.username,
@@ -280,18 +280,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       sliver: SliverGrid(
                         delegate: SliverChildBuilderDelegate((context, index) {
                           final post = photoPosts[index];
+                          final imageUrl = post.imageUrl ?? '';
                           return GestureDetector(
                             onTap: () {
-                              Navigator.of(context).push(
+                              if (post.id.isEmpty) {
+                                return;
+                              }
+
+                              final safePost =
+                                  post.profile == null &&
+                                          profileController.user != null
+                                      ? post.copyWith(
+                                        profile: profileController.user,
+                                      )
+                                      : post;
+
+                              Navigator.push(
+                                context,
                                 MaterialPageRoute(
                                   builder:
-                                      (context) =>
-                                          PhotoPostDetailScreen(post: post),
+                                      (_) =>
+                                          PhotoPostDetailScreen(post: safePost),
                                 ),
                               );
                             },
                             child: CachedNetworkImage(
-                              imageUrl: post.imageUrl!,
+                              imageUrl: imageUrl,
                               fit: BoxFit.cover,
                               placeholder:
                                   (_, __) =>

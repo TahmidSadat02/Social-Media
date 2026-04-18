@@ -16,103 +16,120 @@ class PhotoPostDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final imageUrl = post.imageUrl?.trim() ?? '';
+    final caption = post.content?.trim() ?? '';
+    final profile = post.profile;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.surface,
         title: Text('Post', style: AppTextStyles.heading3),
       ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (post.imageUrl != null && post.imageUrl!.isNotEmpty)
-            Expanded(
-              child: Image.network(
-                post.imageUrl!,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Center(
-                    child: Text(
-                      'Image not found',
-                      style: AppTextStyles.bodySmall,
-                    ),
-                  );
-                },
-              ),
-            ),
-          Container(
-            color: AppColors.surface,
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      body: Builder(
+        builder: (context) {
+          try {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                InkWell(
-                  onTap:
-                      post.profile == null
-                          ? null
-                          : () => navigateToProfile(context, post.profile!.id),
-                  borderRadius: BorderRadius.circular(8),
-                  child: SizedBox(
-                    height: 44,
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        post.profile?.username ?? 'Unknown',
-                        style: AppTextStyles.bodyLarge,
-                      ),
+                if (imageUrl.isNotEmpty)
+                  Expanded(
+                    child: Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Center(
+                          child: Text(
+                            'Image not found',
+                            style: AppTextStyles.bodySmall,
+                          ),
+                        );
+                      },
                     ),
                   ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '${post.likesCount} likes',
-                  style: AppTextStyles.bodyMedium,
-                ),
-                const SizedBox(height: 8),
-                GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder:
-                            (_) => ChangeNotifierProvider(
-                              create: (_) => CommentsController(),
-                              child: CommentsScreen(
-                                postId: post.id,
-                                postImageUrl: post.imageUrl,
-                              ),
-                            ),
-                      ),
-                    );
-                  },
-                  child: Row(
+                Container(
+                  color: AppColors.surface,
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(
-                        Icons.mode_comment_outlined,
-                        size: 18,
-                        color: AppColors.muted,
+                      InkWell(
+                        onTap:
+                            profile == null
+                                ? null
+                                : () => navigateToProfile(context, profile.id),
+                        borderRadius: BorderRadius.circular(8),
+                        child: SizedBox(
+                          height: 44,
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              profile?.username ?? 'Unknown',
+                              style: AppTextStyles.bodyLarge,
+                            ),
+                          ),
+                        ),
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(height: 6),
                       Text(
-                        '${post.commentCount} comments',
+                        '${post.likesCount} likes',
+                        style: AppTextStyles.bodyMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder:
+                                  (_) => ChangeNotifierProvider(
+                                    create: (_) => CommentsController(),
+                                    child: CommentsScreen(
+                                      postId: post.id,
+                                      postImageUrl: post.imageUrl,
+                                    ),
+                                  ),
+                            ),
+                          );
+                        },
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.mode_comment_outlined,
+                              size: 18,
+                              color: AppColors.muted,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              '${post.commentCount} comments',
+                              style: AppTextStyles.bodySmall,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        TimeAgoFormatter.format(post.createdAt),
                         style: AppTextStyles.bodySmall,
                       ),
+                      if (caption.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(caption, style: AppTextStyles.bodyMedium),
+                      ],
                     ],
                   ),
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  TimeAgoFormatter.format(post.createdAt),
-                  style: AppTextStyles.bodySmall,
-                ),
-                if ((post.content ?? '').trim().isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text(post.content!.trim(), style: AppTextStyles.bodyMedium),
-                ],
               ],
-            ),
-          ),
-        ],
+            );
+          } catch (_) {
+            return Center(
+              child: Text(
+                'Unable to load post',
+                style: AppTextStyles.bodyMedium,
+              ),
+            );
+          }
+        },
       ),
     );
   }
