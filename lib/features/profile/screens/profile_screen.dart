@@ -293,9 +293,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       .map(
                                         (p) =>
                                             p.profile == null &&
-                                                    profileController.user != null
+                                                    profileController.user !=
+                                                        null
                                                 ? p.copyWith(
-                                                  profile: profileController.user,
+                                                  profile:
+                                                      profileController.user,
                                                 )
                                                 : p,
                                       )

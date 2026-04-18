@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/utils/navigation_helper.dart';
 import '../../../core/utils/time_ago.dart';
 import '../../../models/post_model.dart';
+import '../../../supabase_config.dart';
 import '../../comments/controllers/comments_controller.dart';
 import '../../comments/screens/comments_screen.dart';
 
@@ -68,16 +70,79 @@ class _PhotoCarouselScreenState extends State<PhotoCarouselScreen> {
   }
 }
 
-class _PostDetailPage extends StatelessWidget {
+class _PostDetailPage extends StatefulWidget {
   final PostModel post;
 
   const _PostDetailPage({required this.post});
 
   @override
+  State<_PostDetailPage> createState() => _PostDetailPageState();
+}
+
+class _PostDetailPageState extends State<_PostDetailPage> {
+  final supabase = SupabaseConfig.client;
+  late int _commentCount;
+  RealtimeChannel? _commentsChannel;
+
+  @override
+  void initState() {
+    super.initState();
+    _commentCount = widget.post.commentCount;
+    _subscribeToComments();
+  }
+
+  void _subscribeToComments() {
+    _commentsChannel = supabase.channel(
+      'comments:post_id=eq.${widget.post.id}',
+    );
+
+    _commentsChannel!.onPostgresChanges(
+      event: PostgresChangeEvent.all,
+      schema: 'public',
+      table: 'comments',
+      callback: (payload) {
+        if (mounted) {
+          final eventType = payload.eventType;
+          if (eventType == PostgresChangeEvent.insert) {
+            final postId = (payload.newRecord['post_id'] ?? '').toString();
+            if (postId == widget.post.id) {
+              setState(() {
+                _commentCount++;
+              });
+            }
+          } else if (eventType == PostgresChangeEvent.delete) {
+            final postId = (payload.oldRecord['post_id'] ?? '').toString();
+            if (postId == widget.post.id) {
+              setState(() {
+                if (_commentCount > 0) {
+                  _commentCount--;
+                }
+              });
+            }
+          }
+        }
+      },
+    );
+
+    _commentsChannel!.subscribe();
+  }
+
+  void _unsubscribeFromComments() {
+    _commentsChannel?.unsubscribe();
+    supabase.realtime.removeChannel(_commentsChannel!);
+  }
+
+  @override
+  void dispose() {
+    _unsubscribeFromComments();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final imageUrl = post.imageUrl?.trim() ?? '';
-    final caption = post.content?.trim() ?? '';
-    final profile = post.profile;
+    final imageUrl = widget.post.imageUrl?.trim() ?? '';
+    final caption = widget.post.content?.trim() ?? '';
+    final profile = widget.post.profile;
 
     return Builder(
       builder: (context) {
@@ -132,7 +197,7 @@ class _PostDetailPage extends StatelessWidget {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        '${post.likesCount} likes',
+                        '${widget.post.likesCount} likes',
                         style: AppTextStyles.bodyMedium,
                       ),
                       const SizedBox(height: 8),
@@ -145,8 +210,8 @@ class _PostDetailPage extends StatelessWidget {
                                   (_) => ChangeNotifierProvider(
                                     create: (_) => CommentsController(),
                                     child: CommentsScreen(
-                                      postId: post.id,
-                                      postImageUrl: post.imageUrl,
+                                      postId: widget.post.id,
+                                      postImageUrl: widget.post.imageUrl,
                                     ),
                                   ),
                             ),
@@ -161,7 +226,7 @@ class _PostDetailPage extends StatelessWidget {
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              '${post.commentCount} comments',
+                              '$_commentCount comments',
                               style: AppTextStyles.bodySmall,
                             ),
                           ],
@@ -169,7 +234,7 @@ class _PostDetailPage extends StatelessWidget {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        TimeAgoFormatter.format(post.createdAt),
+                        TimeAgoFormatter.format(widget.post.createdAt),
                         style: AppTextStyles.bodySmall,
                       ),
                       if (caption.isNotEmpty) ...[
@@ -184,10 +249,7 @@ class _PostDetailPage extends StatelessWidget {
           );
         } catch (_) {
           return Center(
-            child: Text(
-              'Unable to load post',
-              style: AppTextStyles.bodyMedium,
-            ),
+            child: Text('Unable to load post', style: AppTextStyles.bodyMedium),
           );
         }
       },
