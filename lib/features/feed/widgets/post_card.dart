@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/utils/initials.dart';
 import '../../../core/widgets/avatar_widget.dart';
 import '../../../core/utils/time_ago.dart';
+import '../../comments/controllers/comments_controller.dart';
+import '../../comments/screens/comments_screen.dart';
 import '../../../models/post_model.dart';
 
 class PostCard extends StatelessWidget {
@@ -124,19 +127,36 @@ class PostCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 24),
-              Row(
-                children: [
-                  Icon(
-                    Icons.mode_comment_outlined,
-                    color: AppColors.muted,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    '0', // TODO: Add comments count
-                    style: AppTextStyles.bodySmall,
-                  ),
-                ],
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder:
+                          (_) => ChangeNotifierProvider(
+                            create: (_) => CommentsController(),
+                            child: CommentsScreen(
+                              postId: post.id,
+                              postImageUrl: post.imageUrl,
+                            ),
+                          ),
+                    ),
+                  );
+                },
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.mode_comment_outlined,
+                      color: AppColors.muted,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      post.commentCount.toString(),
+                      style: AppTextStyles.bodySmall,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

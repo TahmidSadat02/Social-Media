@@ -28,7 +28,7 @@ class FeedController extends ChangeNotifier {
       // Get posts with user profile info
       final response = await supabase
           .from('posts')
-          .select('*, profiles(*), likes(*)')
+          .select('*, profiles(*), likes(*), comments(id)')
           .order('created_at', ascending: false);
 
       // Check if current user has liked each post
@@ -202,7 +202,7 @@ class FeedController extends ChangeNotifier {
       final postResponse =
           await supabase
               .from('posts')
-              .select('*, profiles(*), likes(*)')
+            .select('*, profiles(*), likes(*), comments(id)')
               .eq('id', postId)
               .single();
 

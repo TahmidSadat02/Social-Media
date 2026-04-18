@@ -7,6 +7,7 @@ class PostModel {
   final String? imageUrl;
   final DateTime createdAt;
   final int likesCount;
+  final int commentCount;
   final bool isLikedByMe;
   final UserModel? profile;
 
@@ -17,6 +18,7 @@ class PostModel {
     this.imageUrl,
     required this.createdAt,
     this.likesCount = 0,
+    this.commentCount = 0,
     this.isLikedByMe = false,
     this.profile,
   });
@@ -28,6 +30,11 @@ class PostModel {
         likesJson is List
             ? likesJson.length
             : (json['likes_count'] as num?)?.toInt();
+    final commentsJson = json['comments'];
+    final commentsCountFromRelation =
+      commentsJson is List
+        ? commentsJson.length
+        : (json['comment_count'] as num?)?.toInt();
 
     return PostModel(
       id: json['id'] as String,
@@ -36,6 +43,7 @@ class PostModel {
       imageUrl: json['image_url'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
       likesCount: likesCountFromRelation ?? 0,
+      commentCount: commentsCountFromRelation ?? 0,
       isLikedByMe: json['is_liked_by_me'] as bool? ?? false,
       profile:
           profileJson != null
@@ -52,6 +60,7 @@ class PostModel {
       'image_url': imageUrl,
       'created_at': createdAt.toIso8601String(),
       'likes_count': likesCount,
+      'comment_count': commentCount,
       'is_liked_by_me': isLikedByMe,
       if (profile != null) 'profile': profile!.toJson(),
     };
@@ -64,6 +73,7 @@ class PostModel {
     String? imageUrl,
     DateTime? createdAt,
     int? likesCount,
+    int? commentCount,
     bool? isLikedByMe,
     UserModel? profile,
   }) {
@@ -74,6 +84,7 @@ class PostModel {
       imageUrl: imageUrl ?? this.imageUrl,
       createdAt: createdAt ?? this.createdAt,
       likesCount: likesCount ?? this.likesCount,
+      commentCount: commentCount ?? this.commentCount,
       isLikedByMe: isLikedByMe ?? this.isLikedByMe,
       profile: profile ?? this.profile,
     );

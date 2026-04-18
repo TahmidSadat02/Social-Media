@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:typed_data';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../../../supabase_config.dart';
 import '../../../models/user_model.dart';
@@ -142,6 +144,42 @@ class ProfileController extends ChangeNotifier {
           .eq('id', userId);
 
       _user = _user?.copyWith(fullName: fullName, bio: bio);
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> updateProfileAvatar({
+    required String userId,
+    required Uint8List imageBytes,
+  }) async {
+    try {
+      _isLoading = true;
+      _error = null;
+      notifyListeners();
+
+      final fileName =
+          'profile_${userId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+      await supabase.storage
+          .from('posts')
+          .uploadBinary(
+            fileName,
+            imageBytes,
+            fileOptions: const FileOptions(contentType: 'image/jpeg'),
+          );
+
+      final avatarUrl = supabase.storage.from('posts').getPublicUrl(fileName);
+
+      await supabase
+          .from('profiles')
+          .update({'avatar_url': avatarUrl})
+          .eq('id', userId);
+
+      _user = _user?.copyWith(avatarUrl: avatarUrl);
     } catch (e) {
       _error = e.toString();
     } finally {

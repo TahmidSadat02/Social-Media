@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/utils/navigation_helper.dart';
 import '../../../core/utils/time_ago.dart';
+import '../../comments/controllers/comments_controller.dart';
+import '../../comments/screens/comments_screen.dart';
 import '../../../models/post_model.dart';
 
 class PhotoPostDetailScreen extends StatelessWidget {
@@ -64,6 +67,38 @@ class PhotoPostDetailScreen extends StatelessWidget {
                 Text(
                   '${post.likesCount} likes',
                   style: AppTextStyles.bodyMedium,
+                ),
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder:
+                            (_) => ChangeNotifierProvider(
+                              create: (_) => CommentsController(),
+                              child: CommentsScreen(
+                                postId: post.id,
+                                postImageUrl: post.imageUrl,
+                              ),
+                            ),
+                      ),
+                    );
+                  },
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.mode_comment_outlined,
+                        size: 18,
+                        color: AppColors.muted,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${post.commentCount} comments',
+                        style: AppTextStyles.bodySmall,
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 6),
                 Text(
