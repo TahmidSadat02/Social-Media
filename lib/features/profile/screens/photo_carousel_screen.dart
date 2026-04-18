@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/utils/navigation_helper.dart';
@@ -82,13 +83,19 @@ class _PostDetailPage extends StatefulWidget {
 class _PostDetailPageState extends State<_PostDetailPage> {
   final supabase = SupabaseConfig.client;
   late int _commentCount;
+  late int _likesCount;
+  late bool _isLikedByMe;
   RealtimeChannel? _commentsChannel;
+  RealtimeChannel? _likesChannel;
 
   @override
   void initState() {
     super.initState();
     _commentCount = widget.post.commentCount;
+    _likesCount = widget.post.likesCount;
+    _isLikedByMe = widget.post.isLikedByMe;
     _subscribeToComments();
+    _subscribeToLikes();
   }
 
   void _subscribeToComments() {
@@ -132,9 +139,109 @@ class _PostDetailPageState extends State<_PostDetailPage> {
     supabase.realtime.removeChannel(_commentsChannel!);
   }
 
+  void _subscribeToLikes() {
+    _likesChannel = supabase.channel(
+      'likes:post_id=eq.${widget.post.id}',
+    );
+
+    _likesChannel!.onPostgresChanges(
+      event: PostgresChangeEvent.all,
+      schema: 'public',
+      table: 'likes',
+      callback: (payload) {
+        if (mounted) {
+          final eventType = payload.eventType;
+          final postId = (payload.newRecord['post_id'] ??
+                  payload.oldRecord['post_id'] ??
+                  '')
+              .toString();
+          if (postId != widget.post.id) {
+            return;
+          }
+
+          final currentUserId = supabase.auth.currentUser?.id;
+          final likeUserId = (payload.newRecord['user_id'] ??
+                  payload.oldRecord['user_id'] ??
+                  '')
+              .toString();
+
+          if (eventType == PostgresChangeEvent.insert) {
+            setState(() {
+              _likesCount++;
+              if (currentUserId == likeUserId) {
+                _isLikedByMe = true;
+              }
+            });
+          } else if (eventType == PostgresChangeEvent.delete) {
+            setState(() {
+              if (_likesCount > 0) {
+                _likesCount--;
+              }
+              if (currentUserId == likeUserId) {
+                _isLikedByMe = false;
+              }
+            });
+          }
+        }
+      },
+    );
+
+    _likesChannel!.subscribe();
+  }
+
+  void _unsubscribeFromLikes() {
+    _likesChannel?.unsubscribe();
+    supabase.realtime.removeChannel(_likesChannel!);
+  }
+
+  Future<void> _toggleLike() async {
+    final currentUserId = supabase.auth.currentUser?.id;
+    if (currentUserId == null) {
+      return;
+    }
+
+    try {
+      final wasLiked = _isLikedByMe;
+
+      // Optimistic update
+      setState(() {
+        _isLikedByMe = !wasLiked;
+        _likesCount += wasLiked ? -1 : 1;
+      });
+
+      if (wasLiked) {
+        // Unlike
+        await supabase
+            .from('likes')
+            .delete()
+            .eq('user_id', currentUserId)
+            .eq('post_id', widget.post.id);
+      } else {
+        // Like
+        await supabase.from('likes').insert({
+          'id': const Uuid().v4(),
+          'user_id': currentUserId,
+          'post_id': widget.post.id,
+        });
+      }
+    } catch (e) {
+      // Revert on error
+      setState(() {
+        _isLikedByMe = !_isLikedByMe;
+        _likesCount += _isLikedByMe ? 1 : -1;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
   @override
   void dispose() {
     _unsubscribeFromComments();
+    _unsubscribeFromLikes();
     super.dispose();
   }
 
@@ -196,43 +303,64 @@ class _PostDetailPageState extends State<_PostDetailPage> {
                         ),
                       ),
                       const SizedBox(height: 6),
-                      Text(
-                        '${widget.post.likesCount} likes',
-                        style: AppTextStyles.bodyMedium,
+                      Row(
+                        children: [
+                          GestureDetector(
+                            onTap: _toggleLike,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  _isLikedByMe
+                                      ? Icons.favorite
+                                      : Icons.favorite_border,
+                                  color: _isLikedByMe
+                                      ? AppColors.error
+                                      : AppColors.muted,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '$_likesCount likes',
+                                  style: AppTextStyles.bodySmall,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 24),
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder:
+                                      (_) => ChangeNotifierProvider(
+                                        create: (_) => CommentsController(),
+                                        child: CommentsScreen(
+                                          postId: widget.post.id,
+                                          postImageUrl: widget.post.imageUrl,
+                                        ),
+                                      ),
+                                ),
+                              );
+                            },
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.mode_comment_outlined,
+                                  size: 18,
+                                  color: AppColors.muted,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '$_commentCount comments',
+                                  style: AppTextStyles.bodySmall,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 8),
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder:
-                                  (_) => ChangeNotifierProvider(
-                                    create: (_) => CommentsController(),
-                                    child: CommentsScreen(
-                                      postId: widget.post.id,
-                                      postImageUrl: widget.post.imageUrl,
-                                    ),
-                                  ),
-                            ),
-                          );
-                        },
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.mode_comment_outlined,
-                              size: 18,
-                              color: AppColors.muted,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              '$_commentCount comments',
-                              style: AppTextStyles.bodySmall,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 6),
                       Text(
                         TimeAgoFormatter.format(widget.post.createdAt),
                         style: AppTextStyles.bodySmall,
