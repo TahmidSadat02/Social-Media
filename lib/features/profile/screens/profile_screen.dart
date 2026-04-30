@@ -1,23 +1,22 @@
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+
 import '../../../core/constants/app_colors.dart';
-import '../../../core/widgets/app_button.dart';
-import '../../../core/widgets/avatar_widget.dart';
-import '../../../core/widgets/loading_widget.dart';
-import '../../../core/utils/initials.dart';
 import '../../../core/utils/tab_navigation_service.dart';
+import '../../../core/widgets/loading_widget.dart';
 import '../../../supabase_config.dart';
+import '../../auth/controllers/auth_controller.dart';
 import '../../feed/controllers/feed_controller.dart';
 import '../../messages/controllers/messages_controller.dart';
 import '../../search/controllers/search_controller.dart' as search_controller;
 import '../controllers/profile_controller.dart';
-import '../../auth/controllers/auth_controller.dart';
 import 'edit_profile_screen.dart';
-import 'photo_carousel_screen.dart';
+import 'photo_post_detail_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String userId;
@@ -40,9 +39,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (currentUserId == null) {
       return;
     }
-
-    debugPrint('Viewing profile: ${widget.userId}');
-    debugPrint('Logged in as: $currentUserId');
 
     await profileController.loadProfile(
       viewedUserId: widget.userId,
@@ -169,29 +165,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  BorderRadius _tileRadius(int index, int total) {
+    if (total == 0) {
+      return BorderRadius.zero;
+    }
+
+    final columns = 3;
+    final rows = ((total - 1) ~/ columns) + 1;
+    final firstRowMaxIndex = math.min(columns, total) - 1;
+    final bottomLeftIndex = (rows - 1) * columns;
+    final bottomRightIndex = total - 1;
+
+    return BorderRadius.only(
+      topLeft: index == 0 ? const Radius.circular(20) : Radius.zero,
+      topRight:
+          index == firstRowMaxIndex ? const Radius.circular(20) : Radius.zero,
+      bottomLeft:
+          index == bottomLeftIndex ? const Radius.circular(20) : Radius.zero,
+      bottomRight:
+          index == bottomRightIndex ? const Radius.circular(20) : Radius.zero,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentUserId = _supabase.auth.currentUser?.id;
     final isOwnProfile = widget.userId == currentUserId;
+    const expandedHeaderHeight = 380.0;
 
     return Scaffold(
       extendBodyBehindAppBar: true,
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: const SizedBox.shrink(),
-        centerTitle: true,
-        actions: [
-          if (isOwnProfile)
-            IconButton(
-              icon: const Icon(Icons.settings, color: Colors.white),
-              onPressed: _showSettingsSheet,
-            ),
-        ],
-      ),
       body: Consumer<ProfileController>(
         builder: (context, profileController, _) {
           if (profileController.isLoading) {
@@ -208,150 +212,150 @@ class _ProfileScreenState extends State<ProfileScreen> {
           }
 
           final user = profileController.user!;
+          final displayName =
+              user.fullName.trim().isNotEmpty ? user.fullName : user.username;
           final photoPosts =
               profileController.userPosts
                   .where((post) => (post.imageUrl ?? '').trim().isNotEmpty)
                   .toList();
-          final initials = getInitials(
-            user.fullName.trim().isNotEmpty ? user.fullName : user.username,
-          );
-          final topSectionHeight = MediaQuery.of(context).size.height * 0.5;
 
-          return Stack(
-            children: [
-              Positioned.fill(
-                child: _ProfileBackgroundImage(imageUrl: user.avatarUrl),
+          return CustomScrollView(
+            scrollDirection: Axis.vertical,
+            physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
+            ),
+            slivers: [
+              SliverAppBar(
+                pinned: true,
+                stretch: true,
+                expandedHeight: expandedHeaderHeight,
+                backgroundColor: AppColors.background,
+                surfaceTintColor: Colors.transparent,
+                iconTheme: const IconThemeData(color: Colors.white),
+                title: Text(
+                  '@${user.username}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                actions: [
+                  if (isOwnProfile)
+                    IconButton(
+                      icon: const Icon(Icons.settings, color: Colors.white),
+                      onPressed: _showSettingsSheet,
+                    ),
+                ],
+                flexibleSpace: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final topPadding = MediaQuery.of(context).padding.top;
+                    final collapsedHeight = kToolbarHeight + topPadding;
+                    final range = expandedHeaderHeight - collapsedHeight;
+                    final currentHeight = constraints.biggest.height;
+                    final blurProgress =
+                        range <= 0
+                            ? 1.0
+                            : ((expandedHeaderHeight - currentHeight) / range)
+                                .clamp(0.0, 1.0);
+
+                    return FlexibleSpaceBar(
+                      collapseMode: CollapseMode.parallax,
+                      background: _ProfileCoverBackground(
+                        imageUrl: user.avatarUrl,
+                        blurProgress: blurProgress,
+                      ),
+                    );
+                  },
+                ),
               ),
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.black.withValues(alpha: 0.12),
-                        Colors.black.withValues(alpha: 0.3),
-                        AppColors.background.withValues(alpha: 0.8),
-                      ],
+              SliverToBoxAdapter(
+                child: Transform.translate(
+                  offset: const Offset(0, -58),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: _GlassInfoCard(
+                      displayName: displayName,
+                      username: user.username,
+                      bio: user.bio,
+                      followersCount: profileController.followersCount,
+                      followingCount: profileController.followingCount,
+                      postsCount: profileController.postsCount,
+                      isOwnProfile: isOwnProfile,
+                      isFollowedByMe: profileController.isFollowedByMe,
+                      onActionTap: () {
+                        if (isOwnProfile) {
+                          return;
+                        }
+                        if (currentUserId == null) {
+                          return;
+                        }
+                        profileController.toggleFollow(user.id, currentUserId);
+                      },
                     ),
                   ),
                 ),
               ),
-              CustomScrollView(
-                slivers: [
-                  SliverToBoxAdapter(child: SizedBox(height: topSectionHeight)),
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    sliver: SliverToBoxAdapter(
-                      child: _FrostedProfileCard(
-                        userFullName: user.fullName,
-                        username: user.username,
-                        bio: user.bio,
-                        avatarUrl: user.avatarUrl,
-                        initials: initials,
-                        postsCount: profileController.postsCount,
-                        followersCount: profileController.followersCount,
-                        followingCount: profileController.followingCount,
-                        isOwnProfile: isOwnProfile,
-                        isFollowedByMe: profileController.isFollowedByMe,
-                        onEditAvatar:
-                            profileController.isLoading
-                                ? null
-                                : _changeProfilePicture,
-                        onActionPressed: () {
-                          if (isOwnProfile) {
-                            _openEditProfile();
-                            return;
-                          }
-                          if (currentUserId == null) {
-                            return;
-                          }
-                          profileController.toggleFollow(
-                            user.id,
-                            currentUserId,
+              if (photoPosts.isNotEmpty)
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+                  sliver: SliverGrid(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          crossAxisSpacing: 2,
+                          mainAxisSpacing: 2,
+                          childAspectRatio: 1,
+                        ),
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      final post = photoPosts[index];
+                      final imageUrl = post.imageUrl!;
+
+                      return GestureDetector(
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder:
+                                  (context) => PhotoPostDetailScreen.carousel(
+                                    posts: photoPosts,
+                                    initialIndex: index,
+                                  ),
+                            ),
                           );
                         },
+                        child: ClipRRect(
+                          borderRadius: _tileRadius(index, photoPosts.length),
+                          child: CachedNetworkImage(
+                            imageUrl: imageUrl,
+                            fit: BoxFit.cover,
+                            placeholder:
+                                (_, __) => Container(color: AppColors.surface),
+                            errorWidget:
+                                (_, __, ___) =>
+                                    Container(color: AppColors.surface),
+                          ),
+                        ),
+                      );
+                    }, childCount: photoPosts.length),
+                  ),
+                )
+              else
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 40),
+                      child: Text(
+                        'No photo posts yet',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.75),
+                          fontSize: 14,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
                     ),
                   ),
-                  if (photoPosts.isNotEmpty)
-                    SliverPadding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      sliver: SliverGrid(
-                        delegate: SliverChildBuilderDelegate((context, index) {
-                          final post = photoPosts[index];
-                          final imageUrl = post.imageUrl ?? '';
-                          return GestureDetector(
-                            onTap: () {
-                              if (post.id.isEmpty) {
-                                return;
-                              }
-
-                              // Ensure all posts have the profile attached
-                              final postsWithProfile =
-                                  photoPosts
-                                      .map(
-                                        (p) =>
-                                            p.profile == null &&
-                                                    profileController.user !=
-                                                        null
-                                                ? p.copyWith(
-                                                  profile:
-                                                      profileController.user,
-                                                )
-                                                : p,
-                                      )
-                                      .toList();
-
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder:
-                                      (_) => PhotoCarouselScreen(
-                                        posts: postsWithProfile,
-                                        initialIndex: index,
-                                      ),
-                                ),
-                              );
-                            },
-                            child: CachedNetworkImage(
-                              imageUrl: imageUrl,
-                              fit: BoxFit.cover,
-                              placeholder:
-                                  (_, __) =>
-                                      Container(color: AppColors.surface),
-                              errorWidget:
-                                  (_, __, ___) =>
-                                      Container(color: AppColors.surface),
-                            ),
-                          );
-                        }, childCount: photoPosts.length),
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 3,
-                              crossAxisSpacing: 2,
-                              mainAxisSpacing: 2,
-                              childAspectRatio: 1,
-                            ),
-                      ),
-                    )
-                  else
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Text(
-                          'No photo posts yet',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.75),
-                            fontSize: 14,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 24)),
-                ],
-              ),
+                ),
             ],
           );
         },
@@ -360,184 +364,177 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
-class _ProfileBackgroundImage extends StatelessWidget {
+class _ProfileCoverBackground extends StatelessWidget {
   final String? imageUrl;
+  final double blurProgress;
 
-  const _ProfileBackgroundImage({required this.imageUrl});
-
-  @override
-  Widget build(BuildContext context) {
-    final avatar = imageUrl?.trim() ?? '';
-    if (avatar.isEmpty) {
-      return Container(color: AppColors.background);
-    }
-
-    return CachedNetworkImage(
-      imageUrl: avatar,
-      fit: BoxFit.cover,
-      placeholder: (_, __) => Container(color: AppColors.background),
-      errorWidget: (_, __, ___) => Container(color: AppColors.background),
-    );
-  }
-}
-
-class _FrostedProfileCard extends StatelessWidget {
-  final String userFullName;
-  final String username;
-  final String? bio;
-  final String? avatarUrl;
-  final String initials;
-  final int postsCount;
-  final int followersCount;
-  final int followingCount;
-  final bool isOwnProfile;
-  final bool isFollowedByMe;
-  final VoidCallback? onEditAvatar;
-  final VoidCallback onActionPressed;
-
-  const _FrostedProfileCard({
-    required this.userFullName,
-    required this.username,
-    required this.bio,
-    required this.avatarUrl,
-    required this.initials,
-    required this.postsCount,
-    required this.followersCount,
-    required this.followingCount,
-    required this.isOwnProfile,
-    required this.isFollowedByMe,
-    required this.onEditAvatar,
-    required this.onActionPressed,
+  const _ProfileCoverBackground({
+    required this.imageUrl,
+    required this.blurProgress,
   });
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: Container(
-          padding: const EdgeInsets.all(24),
+    final cover = (imageUrl ?? '').trim();
+    final sigma = lerpDouble(0, 16, blurProgress)!;
+    final overlayAlpha = lerpDouble(0.02, 0.18, blurProgress)!;
+    final gradientTop = lerpDouble(0.05, 0.12, blurProgress)!;
+    final gradientMid = lerpDouble(0.2, 0.38, blurProgress)!;
+    final gradientBottom = lerpDouble(0.78, 0.92, blurProgress)!;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (cover.isNotEmpty)
+          CachedNetworkImage(
+            imageUrl: cover,
+            fit: BoxFit.cover,
+            placeholder: (_, __) => Container(color: AppColors.background),
+            errorWidget: (_, __, ___) => Container(color: AppColors.background),
+          )
+        else
+          Container(color: AppColors.background),
+        BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
+          child: Container(color: Colors.black.withValues(alpha: overlayAlpha)),
+        ),
+        DecoratedBox(
           decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.48),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.black.withValues(alpha: gradientTop),
+                Colors.black.withValues(alpha: gradientMid),
+                AppColors.background.withValues(alpha: gradientBottom),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _GlassInfoCard extends StatelessWidget {
+  final String displayName;
+  final String username;
+  final String? bio;
+  final int followersCount;
+  final int followingCount;
+  final int postsCount;
+  final bool isOwnProfile;
+  final bool isFollowedByMe;
+  final VoidCallback onActionTap;
+
+  const _GlassInfoCard({
+    required this.displayName,
+    required this.username,
+    required this.bio,
+    required this.followersCount,
+    required this.followingCount,
+    required this.postsCount,
+    required this.isOwnProfile,
+    required this.isFollowedByMe,
+    required this.onActionTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final actionLabel =
+        isOwnProfile
+            ? 'Edit Profile'
+            : (isFollowedByMe ? 'Following' : 'Follow');
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(30),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.44),
+            borderRadius: BorderRadius.circular(30),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      AvatarWidget(
-                        imageUrl: avatarUrl,
-                        initials: initials,
-                        size: 72,
-                      ),
-                      if (isOwnProfile)
-                        Positioned(
-                          bottom: -4,
-                          right: -4,
-                          child: GestureDetector(
-                            onTap: onEditAvatar,
-                            child: Container(
-                              width: 28,
-                              height: 28,
-                              decoration: BoxDecoration(
-                                color: AppColors.accent,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: Colors.black,
-                                  width: 2,
-                                ),
-                              ),
-                              child: const Icon(
-                                Icons.edit,
-                                size: 14,
-                                color: AppColors.background,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
+              Align(
+                alignment: Alignment.center,
+                child: Container(
+                  width: 46,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.8),
+                    borderRadius: BorderRadius.circular(999),
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          userFullName.trim().isNotEmpty
-                              ? userFullName
-                              : username,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 30,
-                            fontWeight: FontWeight.w700,
-                            height: 1.1,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          '@$username',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.75),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  displayName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 38,
+                    fontWeight: FontWeight.w700,
+                    height: 1.1,
                   ),
-                ],
+                  maxLines: 2,
+                  softWrap: true,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '@$username',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.76),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
               if ((bio ?? '').trim().isNotEmpty) ...[
                 const SizedBox(height: 14),
                 Text(
                   bio!.trim(),
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.92),
-                    fontSize: 14,
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontSize: 15,
                     height: 1.35,
                   ),
                 ),
               ],
-              const SizedBox(height: 22),
+              const SizedBox(height: 18),
               Row(
                 children: [
                   Expanded(
-                    child: _GlassStatItem(
-                      label: 'Followers',
+                    child: _StatValue(
                       value: followersCount.toString(),
+                      label: 'Followers',
                     ),
                   ),
                   Expanded(
-                    child: _GlassStatItem(
-                      label: 'Following',
+                    child: _StatValue(
                       value: followingCount.toString(),
+                      label: 'Following',
                     ),
                   ),
                   Expanded(
-                    child: _GlassStatItem(
-                      label: 'Posts',
+                    child: _StatValue(
                       value: postsCount.toString(),
+                      label: 'Creations',
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 22),
-              SizedBox(
-                width: double.infinity,
-                child: AppButton(
-                  label:
-                      isOwnProfile
-                          ? 'Edit Profile'
-                          : (isFollowedByMe ? 'Unfollow' : 'Follow'),
-                  onPressed: onActionPressed,
-                ),
+              const SizedBox(height: 20),
+              _ActionButton(
+                label: actionLabel,
+                isOwnProfile: isOwnProfile,
+                onTap: onActionTap,
               ),
             ],
           ),
@@ -547,22 +544,22 @@ class _FrostedProfileCard extends StatelessWidget {
   }
 }
 
-class _GlassStatItem extends StatelessWidget {
-  final String label;
+class _StatValue extends StatelessWidget {
   final String value;
+  final String label;
 
-  const _GlassStatItem({required this.label, required this.value});
+  const _StatValue({required this.value, required this.label});
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Text(
           value,
           style: const TextStyle(
             color: Colors.white,
-            fontSize: 20,
+            fontSize: 24,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -570,12 +567,69 @@ class _GlassStatItem extends StatelessWidget {
         Text(
           label,
           style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.7),
+            color: Colors.white.withValues(alpha: 0.72),
             fontSize: 12,
             fontWeight: FontWeight.w500,
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ActionButton extends StatelessWidget {
+  final String label;
+  final bool isOwnProfile;
+  final VoidCallback onTap;
+
+  const _ActionButton({
+    required this.label,
+    required this.isOwnProfile,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(14);
+    final decoration =
+        isOwnProfile
+            ? BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.38),
+              borderRadius: radius,
+              border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+            )
+            : BoxDecoration(
+              borderRadius: radius,
+              gradient: const LinearGradient(
+                colors: [Color(0xFFFF4D8D), Color(0xFFFF9A3C)],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
+            );
+
+    return DecoratedBox(
+      decoration: decoration,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: radius,
+          onTap: onTap,
+          child: SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: Center(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

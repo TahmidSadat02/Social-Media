@@ -58,7 +58,7 @@ class ProfileController extends ChangeNotifier {
       // Load user posts
       final postsResponse = await supabase
           .from('posts')
-          .select('*, profiles(*), likes(*)')
+          .select('*, profiles(*), likes(count)')
           .eq('user_id', viewedUserId)
           .order('created_at', ascending: false);
 

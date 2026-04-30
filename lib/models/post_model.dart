@@ -26,10 +26,19 @@ class PostModel {
   factory PostModel.fromJson(Map<String, dynamic> json) {
     final profileJson = json['profile'] ?? json['profiles'];
     final likesJson = json['likes'];
-    final likesCountFromRelation =
-        likesJson is List
-            ? likesJson.length
-            : (json['likes_count'] as num?)?.toInt();
+
+    int? likesCountFromRelation;
+    if (likesJson is List && likesJson.isNotEmpty) {
+      final first = likesJson.first;
+      if (first is Map && first.containsKey('count')) {
+        likesCountFromRelation = (first['count'] as num).toInt();
+      } else {
+        likesCountFromRelation = likesJson.length;
+      }
+    } else {
+      likesCountFromRelation = (json['likes_count'] as num?)?.toInt();
+    }
+
     final commentsJson = json['comments'];
     final commentsCountFromRelation =
         commentsJson is List
@@ -45,11 +54,25 @@ class PostModel {
       likesCount: likesCountFromRelation ?? 0,
       commentCount: commentsCountFromRelation ?? 0,
       isLikedByMe: json['is_liked_by_me'] as bool? ?? false,
-      profile:
-          profileJson != null
-              ? UserModel.fromJson(profileJson as Map<String, dynamic>)
-              : null,
+      profile: _parseProfile(profileJson),
     );
+  }
+
+  static UserModel? _parseProfile(dynamic profileJson) {
+    if (profileJson == null) return null;
+    try {
+      Map<String, dynamic> profileMap;
+      if (profileJson is Map<String, dynamic>) {
+        profileMap = profileJson;
+      } else if (profileJson is List && profileJson.isNotEmpty) {
+        profileMap = profileJson.first as Map<String, dynamic>;
+      } else {
+        return null;
+      }
+      return UserModel.fromJson(profileMap);
+    } catch (_) {
+      return null;
+    }
   }
 
   Map<String, dynamic> toJson() {
